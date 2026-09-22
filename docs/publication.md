@@ -12,6 +12,8 @@ Historical versions do contain personal defaults, private infrastructure address
 
 No commit, push, visibility change, force-push, history rewrite, or deployment is performed by the export command. Choose the public repository name and publication timing separately. Use a GitHub no-reply commit email if you do not want a personal email in the new history.
 
+The public repository is now [OmegaSkiller/bloodwork-tracker](https://github.com/OmegaSkiller/bloodwork-tracker). Its initial commit contains the reviewed export with fresh history; the original private history was not copied. [Verification results](verification.md) include the completed GitHub Actions runs.
+
 ## Exact candidate contents
 
 [scripts/public-files.json](../scripts/public-files.json) is the exact allowlist. It includes application source, build/runtime configuration with placeholders, package/lockfiles, tests and CI configuration, independently authored demo fixtures, the generalized import skill, documentation, license/notices, and two reviewed synthetic screenshots. There is no database, secret, patient report, extraction output, build output, or existing `.git` directory in it.
@@ -36,7 +38,7 @@ Portfolio summary:
 
 > I designed a self-hosted bloodwork tracker and used AI to help implement it, including a reviewed PDF-to-data workflow. Its engineering focus is preserving measurement context, enforcing profile ownership, and importing history without overwriting data. A synthetic demo and regression/browser tests make those decisions inspectable without exposing health records.
 
-LinkedIn draft — publish only after the reviewed repository is public; replace the link:
+LinkedIn launch draft — review before posting:
 
 > I've published Bloodwork Local, a self-hosted way to compare lab history while preserving dates, units, and report context.
 >
@@ -44,7 +46,7 @@ LinkedIn draft — publish only after the reviewed repository is public; replace
 >
 > The repository includes a synthetic demo, tests, and a short engineering case study. No patient data or paid API key is needed to try the core workflow.
 >
-> I'm looking for a remote full-time engineering role where careful implementation and product judgment matter. Code and case study: [public repository URL].
+> I'm looking for a remote full-time engineering role where careful implementation and product judgment matter. Code and case study: https://github.com/OmegaSkiller/bloodwork-tracker.
 
 Interview talking points:
 
