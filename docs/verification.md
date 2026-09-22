@@ -30,9 +30,14 @@ Screenshots are generated separately from a freshly seeded database using the RE
 - An early backup smoke used byte-for-byte equality, which SQLite's backup API does not promise. Verification now checks integrity, schema and all rows; read-only preview still checks unchanged database bytes.
 - Build succeeds with Vite's non-fatal chunk-size warning: approximately **550 kB minified / 168 kB gzip** for the main JavaScript chunk. A future targeted split can improve initial loading. npm also reports an upstream `prebuild-install` deprecation warning.
 
+## Passed on GitHub Actions — 2026-09-23 (Europe/Sofia)
+
+The [initial public commit run](https://github.com/OmegaSkiller/bloodwork-tracker/actions/runs/35786978764) passed on `ubuntu-latest` with Node 22: clean installation, **22 regression tests**, production build and syntax checks, **3 Chromium workflow tests**, dependency audit, and whitespace checks. The screenshot-generation test was intentionally skipped. The production-dependency audit reported zero known vulnerabilities at run time.
+
+The [workflow maintenance run](https://github.com/OmegaSkiller/bloodwork-tracker/actions/runs/35788369303) also passed after upgrading `actions/checkout` and `actions/setup-node` to v7. These actions use the supported Node 24 action runtime; the application remains tested on Node 22. See [workflow runs](https://github.com/OmegaSkiller/bloodwork-tracker/actions/workflows/ci.yml) for subsequent commits. CI success does not verify a deployment or clinical accuracy.
+
 ## Not run or not claimed
 
-- No changes were committed, pushed, or published as part of preparation. The GitHub Actions workflow is supplied; remote CI has not run for this candidate.
 - No public/private service was deployed, restarted, or verified. The real database and operator's installed import skill were left unchanged.
 - No live AI provider was called. API provider tests are simulated; the browser checks the missing-key path.
 - Chromium covers the recorded desktop/mobile workflow. Safari, Firefox, a screen-reader session, hostile workbook fuzzing, and load testing are not claimed.
