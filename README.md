@@ -111,7 +111,7 @@ git diff --check
 
 Tests exercise dates, precision, duplicate/conflicting imports, migration preservation, cross-account and cross-profile access, AI context/job ownership, provider failure, keyboard dialogs, mobile overflow, and chart/table consistency. AI responses in API tests are explicitly stubbed; no real key is used. Browser tests run the key-free error path.
 
-To regenerate synthetic screenshots from a fresh demo: `UPDATE_DEMO_SCREENSHOTS=1 npm run test:browser -- --grep 'capture reproducible'`. Review the images before committing them. [Validation record](docs/verification.md) distinguishes local checks, unrun remote CI, and deployment status.
+To regenerate synthetic screenshots from a fresh demo: `UPDATE_DEMO_SCREENSHOTS=1 npm run test:browser -- --grep 'capture reproducible'`. Review the images before committing them. [Validation record](docs/verification.md) distinguishes local checks, completed GitHub Actions verification, and deployment status.
 
 ```bash
 npm run build
