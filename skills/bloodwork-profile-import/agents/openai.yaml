@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bloodwork Profile Import"
+  short_description: "Review and import laboratory observations"
+  default_prompt: "Use $bloodwork-profile-import to inspect these private lab files, confirm the destination profile, preserve reported values and units, and prepare a dry-run import."

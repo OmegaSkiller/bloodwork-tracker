@@ -1,0 +1,8 @@
+{
+  "profile": { "name": "Synthetic demo" },
+  "sources": [],
+  "entries": [
+    { "category": "Glycemic", "marker": "Glucose", "date": "2026-06-12", "value": "5.080", "unit": "mmol/L", "lab": "Synthetic Lab B", "method": "Synthetic assay B", "reference": "3.9–6.1", "notes": "Invented example for import testing; not a patient result." },
+    { "category": "Urinalysis", "marker": "Protein, qualitative", "date": "2026-06-12", "value": "Negative", "unit": "", "lab": "Synthetic Lab B", "method": "Synthetic assay B", "reference": "Qualitative result", "notes": "Invented example for import testing; not a patient result." }
+  ]
+}

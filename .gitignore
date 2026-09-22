@@ -1,0 +1,59 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Private medical data and runtime state
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+*.db
+*.db-*
+*.sql
+*.pdf
+*.xlsx
+*.xls
+*.csv
+*.pem
+*.key
+*.p12
+*.htpasswd
+uploads/
+exports/
+backups/
+reports/
+outputs/
+tmp/
+release/
+# Screenshots must be explicitly reviewed synthetic artifacts.
+*.png
+*.jpg
+*.jpeg
+*.webp
+!docs/images/synthetic-demo.png
+!docs/images/synthetic-mobile.png
+
+# Logs and caches
+*.log
+npm-debug.log*
+.npm/
+.vite/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Temporary files
+*.tmp
+*.bak

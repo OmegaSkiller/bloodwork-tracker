@@ -1,0 +1,34 @@
+services:
+  bloodwork:
+    build:
+      context: .
+    image: bloodwork-local:latest
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:${PORT:-8787}:8787"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      NODE_ENV: ${NODE_ENV:-development}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-12}
+      BLOODWORK_DB_PATH: /app/data/bloodwork.sqlite
+      OPENAI_API_KEY_PATH: /app/data/openai-api-key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_ATTEMPTS: ${OPENAI_ATTEMPTS:-2}
+      OPENAI_TIMEOUT_MS: ${OPENAI_TIMEOUT_MS:-180000}
+      OPENROUTER_KEY: ${OPENROUTER_KEY:-}
+      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-http://localhost:8787}
+      OPENROUTER_ATTEMPTS: ${OPENROUTER_ATTEMPTS:-2}
+      OPENROUTER_TIMEOUT_MS: ${OPENROUTER_TIMEOUT_MS:-60000}
+    volumes:
+      - ./data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

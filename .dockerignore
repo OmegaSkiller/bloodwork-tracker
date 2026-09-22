@@ -1,0 +1,16 @@
+# Allow only image inputs. Medical data cannot enter the build context.
+**
+!package.json
+!package-lock.json
+!index.html
+!vite.config.js
+!public/
+!public/**
+!src/
+!src/**
+!server/
+!server/**
+!shared/
+!shared/**
+!demo/
+!demo/**
