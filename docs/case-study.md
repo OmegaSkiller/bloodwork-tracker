@@ -28,6 +28,6 @@ See [the validation record](verification.md) for exact completed checks and rema
 
 ## Outcome and next improvement
 
-The public candidate is a runnable tracking application with invented demo data, a documented architecture, repeatable tests, and a deliberate publication boundary. The existing private history is kept separate from an allowlisted source export; real data is not needed to evaluate the project.
+The result is a runnable tracking application with invented demo data, a documented architecture, and repeatable tests. Real health records and paid API credentials are not needed to evaluate the core workflow.
 
 The next substantial improvement would be explicit provenance and review UI for imported observations: show the source/page, review status, and conflicting measurements before proposing a correction. The manifest already preserves source metadata, but the application does not yet offer that review experience. A clinical equivalence/conversion engine or a SaaS rollout would need a separate design and validation effort.

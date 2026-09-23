@@ -1,6 +1,6 @@
 # Validation record
 
-This record concerns the public candidate and synthetic data. It does not describe a live deployment or a medical validation study.
+This record covers the application using synthetic data. It does not describe a live deployment or a medical validation study.
 
 ## Passed locally — 2026-09-22
 
@@ -10,7 +10,7 @@ Environment: macOS arm64, Node **22.23.2**, npm, and Chromium. A clean allowlist
 | --- | --- |
 | `npm run check` in the clean export | **22 tests passed**, production build passed, server/shared syntax checks passed. |
 | `npm run test:browser` in the clean export | **3 workflow tests passed**; the opt-in screenshot test was intentionally skipped. Real API/database; provider calls absent. |
-| Development quick start | Login, add a result, and reload through Vite preserved `1.23450`; no browser errors. Used `PORT=18789 VITE_PORT=15173` because unrelated local services occupied the default ports. |
+| Development quick start | Login, add a result, and reload through Vite preserved `1.23450`; no browser errors. |
 | Development-origin regression | Real Vite proxy and API accept same-origin login/writes and reject a foreign origin with HTTP 403. |
 | Import CLI and packaged skill adapter | Preview added no database bytes or backups. Apply added two observations; its backup passed SQLite integrity/foreign-key checks and matched every original schema object and row. Reimport reported zero additions and two identical results. The browser fixture imports through the skill wrapper. |
 | Data preservation | Demo refused an existing database. Personal setup created one administrator and refused to replace credentials on a second run. Synthetic legacy migrations preserved observations and unrelated tables. |
@@ -18,7 +18,7 @@ Environment: macOS arm64, Node **22.23.2**, npm, and Chromium. A clean allowlist
 | Authorization and AI boundaries | Cross-account profile-ID substitution, mismatched child IDs, catalog cloning, saved chats and job polling are denied. Stubbed provider tests verify server-selected context, consent, failure preservation, and session handling. |
 | UI and accessibility | Keyboard entry/calendars, Escape/focus return, exact chart/table values, marker/date selection, duplicate errors, reload persistence, empty states and missing-key disclosure passed. At 390px, no page overflow and the first result/unit are visible and editable. |
 | Dependencies | `npm audit` reported **0 vulnerabilities**, including development dependencies, at the validation date. License metadata and bundled assets were reviewed; notices are included. |
-| Publication hygiene | `git diff --check`, relative documentation links, source allowlist review, and synthetic image metadata checks passed. The installed import skill's five files still match their preexisting archive. |
+| Source and documentation | `git diff --check`, relative documentation links, source allowlist review, and synthetic image metadata checks passed. |
 
 Screenshots are generated separately from a freshly seeded database using the README command and visually reviewed. They contain the invented demo plus its example import, with no patient-derived content.
 
@@ -38,7 +38,7 @@ The [workflow maintenance run](https://github.com/OmegaSkiller/bloodwork-tracker
 
 ## Not run or not claimed
 
-- No public/private service was deployed, restarted, or verified. The real database and operator's installed import skill were left unchanged.
+- No running service or live database was used for this validation; no deployment is verified.
 - No live AI provider was called. API provider tests are simulated; the browser checks the missing-key path.
 - Chromium covers the recorded desktop/mobile workflow. Safari, Firefox, a screen-reader session, hostile workbook fuzzing, and load testing are not claimed.
 - Optional Docker packaging requires separate verification on its target runtime.

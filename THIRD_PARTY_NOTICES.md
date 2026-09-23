@@ -42,4 +42,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-Asset review found no bundled patient documents, external photographs, proprietary icon packs, or font files in the public candidate. This records the available repository evidence; it does not assert ownership of unrelated material in the private workspace.
+The bundled assets contain no patient documents, external photographs, proprietary icon packs, or font files.

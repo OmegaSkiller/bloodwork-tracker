@@ -124,8 +124,8 @@ Docker Compose is an optional local packaging path: it binds the host port to lo
 
 For a remote private installation, configure HTTPS, `NODE_ENV=production`, a trusted reverse proxy, protected data storage, and backups. Never expose the Vite development server or public demo credentials. Anti-indexing directives are retained but are not access control.
 
-## Portfolio, authorship, and license
+## Authorship and license
 
 The author designed the product idea, architecture, and detailed behavior. AI assisted with implementation and the original private PDF-to-data preparation; this public preparation was also AI-assisted. The engineering evidence is the decisions, reviewable code, and reproducible checks, not the volume of generated code. No adoption, revenue, time-saving, or clinical-outcome claims are made.
 
-[MIT license](LICENSE). Dependency and asset attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Source publication does not deploy an application or grant access to private data. See [publication preparation](docs/publication.md) for the explicit file allowlist and fresh-history export.
+[MIT license](LICENSE). Dependency and asset attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Publishing this source does not deploy an application or grant access to private data.
