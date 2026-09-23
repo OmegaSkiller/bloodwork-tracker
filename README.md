@@ -4,6 +4,8 @@ A private, self-hosted tracker for people who want to review laboratory results 
 
 ![Synthetic laboratory history with selectable markers, a trend chart, and a results table](docs/images/synthetic-demo.png)
 
+![Pixel](https://analytics.codechameleon.com/p/mfu08Anja)
+
 Every observation and annotation shown here is invented. No patient reports or real medical data are included. [Mobile view](docs/images/synthetic-mobile.png) · [Engineering case study](docs/case-study.md)
 
 ## What works
