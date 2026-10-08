@@ -57,5 +57,10 @@ export const api = {
   getOpenAiKeyStatus: () => request('/api/ai/openai-key'),
   saveOpenAiKey: (apiKey) => request('/api/ai/openai-key', { method: 'PUT', body: JSON.stringify({ apiKey }) }),
   deleteOpenAiKey: () => request('/api/ai/openai-key', { method: 'DELETE' }),
+  startPdfImport: (profileId, file) => request(`/api/pdf-import?profileId=${encodeURIComponent(profileId)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/pdf', 'X-Pdf-Transfer-Consent': 'true' }, body: file,
+  }),
+  getPdfImport: (jobId) => request(`/api/pdf-import/${encodeURIComponent(jobId)}`),
+  reviewPdfImport: (jobId, data) => request(`/api/pdf-import/${encodeURIComponent(jobId)}/review`, { method: 'POST', body: JSON.stringify(data) }),
   aiChat,
 }

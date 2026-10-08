@@ -9,7 +9,7 @@ This is a private self-hosted tracker. Publishing its source is separate from ru
 - Passwords use salted scrypt. Opaque session tokens are HTTP-only, SameSite Strict cookies; only token hashes are held in memory. Production mode uses Secure, host-only cookies and requires HTTPS. Sessions expire, and account deletion/password reset revokes them. Restarts sign everyone out.
 - Five failed attempts per IP block login for 24 hours. Arbitrary forwarding headers are ignored unless the operator explicitly configures a trusted proxy. Unsafe API requests reject mismatched origins.
 
-The previous version intentionally shared profiles across all accounts. The additive migration leaves old profiles with no owner, accessible only to administrators. No existing results are reassigned or deleted. Reintroducing sharing or transferring ownership needs an explicit operator decision. The database migration test covers preservation using a synthetic historical schema; it has not been run on a live database as part of this preparation.
+The previous version intentionally shared profiles across all accounts. The additive migration leaves old profiles with no owner, accessible only to administrators. No existing results are reassigned or deleted. Reintroducing sharing or transferring ownership needs an explicit operator decision. The migration was rehearsed on an on-server copy of the production database before the 2026-10-08 upgrade; aggregate counts and integrity were rechecked after cutover.
 
 ## Data at rest and imports
 
@@ -19,7 +19,9 @@ Manual numeric input is finite and limited to 15 significant digits. Original en
 
 The CLI is a trusted local operator tool and bypasses HTTP sessions by design. It requires both the target profile ID and exact name. Preview is read-only; apply creates a backup and then writes one transaction, rejecting conflicting observations. Restore requires stopping the app and restoring the chosen backup to an offline database destination; do not copy over a running WAL database. Backups have the same sensitivity as the source database.
 
-There is no upload endpoint. Workbook parsing is for trusted local files, with input-size/dimension limits and rejection of formulas/errors; it is not a hardened sandbox for hostile archives. PDFs/images require a separate extraction workflow, source review, and permission for any external processor. The [import skill](../skills/bloodwork-profile-import/SKILL.md) does not silently send documents to a provider.
+The PDF endpoint accepts authenticated, authorized-profile uploads up to 10 MB after a separate transfer-consent signal. It sends the complete PDF to OpenAI for structured extraction; names and medical details in the file leave the server. The app does not write the PDF to disk. Account/profile-bound extraction drafts live in one process for up to 30 minutes; restarting clears them. The operator key is shared, with five extraction starts per account per hour and one pending extraction per account. The user must compare proposed values with the source, confirm the profile, preview the exact edited rows, and explicitly apply. Apply makes a private database backup, rejects conflicts, and writes one transaction. A source hash and page are stored with imported results. These controls do not establish OCR accuracy, provider privacy guarantees, or hostile-PDF parsing safety at the provider.
+
+Workbook parsing is for trusted local files, with input-size/dimension limits and rejection of formulas/errors; it is not a hardened sandbox for hostile archives. The [import skill](../skills/bloodwork-profile-import/SKILL.md) does not silently send documents to a provider.
 
 ## Optional external AI
 

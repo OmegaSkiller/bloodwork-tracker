@@ -1,5 +1,5 @@
 import Modal from './ui/Modal.jsx'
-import { useEffect, useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { Icon } from './Icons.jsx'
 import DatePickerField from './DatePickerField.jsx'
 import { dateValue } from './ui/date-utils.js'
@@ -13,7 +13,7 @@ export default function RecordModal({ open, editing, initial, profileId, categor
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
     setForm(editing ? {
       markerId: String(editing.markerId),

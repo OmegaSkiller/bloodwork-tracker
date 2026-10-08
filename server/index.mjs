@@ -4,6 +4,8 @@ import path from 'node:path'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { db, createSchema, paths } from './db.mjs'
+import { extractPdf, inspectPdf, PDF_MAX_BYTES, reviewedPdfEntries } from './pdf-import.mjs'
+import { importEntries } from './import.mjs'
 import { AI_MARKER_LIMIT, AI_PROVIDERS, DEFAULT_AI_PROVIDER, DEFAULT_AI_SYSTEM_PROMPT, OPENAI_MODELS } from '../shared/ai.js'
 
 import { hashPassword, verifyPassword, validatePassword } from './passwords.mjs'
@@ -30,6 +32,8 @@ const loginFailureWindowMs = 15 * 60 * 1000
 const loginBlockMs = 24 * 60 * 60 * 1000
 const aiJobTtlMs = 15 * 60 * 1000
 const aiJobs = new Map()
+const pdfJobs = new Map()
+const pdfStarts = new Map()
 
 const aiJobCleanup = setInterval(() => {
   const cutoff = Date.now() - aiJobTtlMs
@@ -38,6 +42,17 @@ const aiJobCleanup = setInterval(() => {
   }
 }, 60 * 1000)
 aiJobCleanup.unref()
+
+const pdfJobCleanup = setInterval(() => {
+  const cutoff = Date.now() - 30 * 60 * 1000
+  for (const [id, job] of pdfJobs) if (job.createdAt < cutoff) pdfJobs.delete(id)
+  for (const [userId, starts] of pdfStarts) {
+    const recent = starts.filter((time) => time > Date.now() - 60 * 60 * 1000)
+    if (recent.length) pdfStarts.set(userId, recent)
+    else pdfStarts.delete(userId)
+  }
+}, 60 * 1000)
+pdfJobCleanup.unref()
 
 const authCleanup = setInterval(() => {
   const now = Date.now()
@@ -756,6 +771,88 @@ app.delete('/api/ai/openai-key', requireAdmin, (_req, res) => {
     else if (String(process.env.OPENAI_API_KEY || '').trim()) return res.status(409).json({ error: 'This key is configured through OPENAI_API_KEY and cannot be removed in the app.' })
     res.json(openAiKeyStatus())
   } catch (error) {
+    sendError(res, error)
+  }
+})
+
+app.post('/api/pdf-import', (req, res, next) => {
+  const profileId = Number(req.query.profileId)
+  if (!canAccessProfile(req, profileId)) return res.status(404).json({ error: 'Profile not found.' })
+  if (!requestCanSubmitSecret(req)) return res.status(400).json({ error: 'Open this app over HTTPS before sending a medical PDF.' })
+  if (req.get('x-pdf-transfer-consent') !== 'true') return res.status(400).json({ error: 'Confirm that the PDF may be sent to OpenAI for extraction.' })
+  if (!req.is('application/pdf')) return res.status(415).json({ error: 'Choose a PDF file.' })
+  next()
+}, express.raw({ type: 'application/pdf', limit: PDF_MAX_BYTES }), (req, res) => {
+  try {
+    const profileId = Number(req.query.profileId)
+    const sha256 = inspectPdf(req.body)
+    const apiKey = readOpenAiKey()
+    if (!apiKey) return res.status(503).json({ error: 'An administrator must configure an OpenAI API key in AI settings first.' })
+    if ([...pdfJobs.values()].some((job) => job.userId === req.auth.userId && job.state === 'pending')) return res.status(429).json({ error: 'Your previous PDF is still being read.' })
+    const now = Date.now()
+    const recent = (pdfStarts.get(req.auth.userId) || []).filter((time) => time > now - 60 * 60 * 1000)
+    if (recent.length >= 5) return res.status(429).json({ error: 'PDF extraction is limited to five reports per hour per account.' })
+    pdfStarts.set(req.auth.userId, [...recent, now])
+    const jobId = randomUUID()
+    pdfJobs.set(jobId, { userId: req.auth.userId, profileId, createdAt: now, state: 'pending', sha256 })
+    void extractPdf(req.body, apiKey, { signal: AbortSignal.timeout(openAiTimeoutMs) })
+      .then(({ patientName, rows }) => {
+        const job = pdfJobs.get(jobId)
+        if (!job) return
+        const catalog = db.prepare(`SELECT m.name, c.name AS category FROM markers m JOIN categories c ON c.id = m.category_id WHERE m.profile_id = ?`).all(profileId)
+        const reviewed = rows.map((row) => {
+          const matches = catalog.filter((marker) => marker.name.toLowerCase() === row.marker.toLowerCase())
+          return { ...row, category: matches.length === 1 ? matches[0].category : matches.length > 1 ? '' : 'General' }
+        })
+        pdfJobs.set(jobId, { ...job, state: 'ready', patientName, rows: reviewed })
+      })
+      .catch((error) => {
+        const job = pdfJobs.get(jobId)
+        if (job) pdfJobs.set(jobId, { ...job, state: 'failed', error: error?.name === 'TimeoutError' ? 'OpenAI timed out while reading the PDF. No results were imported.' : error.message || 'PDF extraction failed. No results were imported.' })
+      })
+    res.status(202).json({ jobId, status: 'pending' })
+  } catch (error) { sendError(res, error) }
+})
+
+app.get('/api/pdf-import/:jobId', (req, res) => {
+  const job = pdfJobs.get(req.params.jobId)
+  if (!job || job.userId !== req.auth.userId || !canAccessProfile(req, job.profileId)) return res.status(404).json({ error: 'PDF import not found.' })
+  if (job.state === 'failed') return res.status(502).json({ error: job.error })
+  if (job.state === 'pending' || job.state === 'applying') return res.status(202).json({ status: job.state })
+  if (job.state === 'applied') return res.json({ status: 'applied', ...job.result })
+  res.json({ status: 'ready', patientName: job.patientName, rows: job.rows.map((row, sourceIndex) => ({ ...row, sourceIndex })) })
+})
+
+app.post('/api/pdf-import/:jobId/review', async (req, res) => {
+  const job = pdfJobs.get(req.params.jobId)
+  if (!job || job.userId !== req.auth.userId || !canAccessProfile(req, job.profileId)) return res.status(404).json({ error: 'PDF import not found.' })
+  if (job.state !== 'ready') return res.status(409).json({ error: 'Wait for extraction or start a new PDF import.' })
+  try {
+    if (req.body?.confirmedProfile !== true) throw new Error('Confirm that the report belongs to the selected profile.')
+    const entries = reviewedPdfEntries(req.body.rows, job.rows, job.sha256)
+    const options = { profileId: job.profileId, profileName: req.body.profileName }
+    const reviewHash = createHash('sha256').update(JSON.stringify([req.body.profileName, entries])).digest('hex')
+    if (req.body.mode === 'apply' && job.previewHash !== reviewHash) throw new Error('Preview these exact reviewed results before importing.')
+    const plan = importEntries(entries, options)
+    if (req.body.mode === 'preview') {
+      pdfJobs.set(req.params.jobId, { ...job, previewHash: reviewHash })
+      return res.json(plan)
+    }
+    if (req.body.mode !== 'apply') throw new Error('Preview the import before applying it.')
+    if (!plan.added) {
+      const result = { ...plan, dryRun: false }
+      pdfJobs.set(req.params.jobId, { ...job, state: 'applied', result })
+      return res.json(result)
+    }
+    pdfJobs.set(req.params.jobId, { ...job, state: 'applying' })
+    const folder = path.join(path.dirname(paths.databasePath), 'backups')
+    fs.mkdirSync(folder, { recursive: true, mode: 0o700 })
+    await db.backup(path.join(folder, `before-pdf-import-${randomUUID()}.sqlite`))
+    const result = importEntries(entries, { ...options, dryRun: false })
+    pdfJobs.set(req.params.jobId, { ...job, state: 'applied', result })
+    res.json(result)
+  } catch (error) {
+    if (pdfJobs.get(req.params.jobId)?.state === 'applying') pdfJobs.set(req.params.jobId, job)
     sendError(res, error)
   }
 })

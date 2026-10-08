@@ -8,15 +8,17 @@ A private, self-hosted tracker for people who want to review laboratory results 
 
 Every observation and annotation shown here is invented. No patient reports or real medical data are included. [Mobile view](docs/images/synthetic-mobile.png) · [Engineering case study](docs/case-study.md)
 
+**New: reviewed PDF import.** With an operator-supplied OpenAI key, the app can propose markers, reported values, units, laboratories, and collection dates from a PDF. Correct the draft, preview additions and conflicts, then explicitly import. The synthetic demo remains key-free.
+
 ## What works
 
-- Enter, edit, and delete numeric, qualitative, or limit results; import reviewed JSON manifests or simple XLSX timelines with an explicit preview.
+- Enter, edit, and delete numeric, qualitative, or limit results; import reviewed PDFs with OpenAI, JSON manifests, or simple XLSX timelines.
 - Keep multiple profiles, select markers, compare an inclusive date range, inspect exact values in a chart data table, and add timeline annotations.
 - Preserve entered precision and per-observation units, lab, method, and reference text. Missing measurements stay missing. No automatic conversions or universal “normal” ranges.
 - Authenticate with server-side sessions. Members see their own profiles; administrators can access all profiles and manage accounts.
 - Optionally ask an external AI provider about selected observations, using an operator-supplied API key and explicit transfer consent.
 
-This is a personal/self-hosted application with basic account ownership, **not a production-ready multi-tenant SaaS or a clinical decision system**. There is no billing, organization model, public signup, built-in PDF/OCR upload, or automatic medical interpretation. PDF extraction is an optional, reviewed agent workflow described below. See [security boundaries and limitations](docs/security.md).
+This is a personal/self-hosted application with basic account ownership, **not a production-ready multi-tenant SaaS or a clinical decision system**. There is no billing, organization model, public signup, or automatic medical interpretation. See [security boundaries and limitations](docs/security.md).
 
 ## Run the synthetic demo
 
@@ -60,6 +62,14 @@ This adds a seventh date. Running it again reports identical observations. Confl
 
 The same command accepts `--workbook PATH` instead of `--manifest PATH`. See the [format contract](skills/bloodwork-profile-import/references/manifest-and-workbook.md): use manifests when units, labs, methods, or ranges vary between observations. Only trusted local workbooks are supported.
 
+### Import a PDF in the app
+
+An administrator first saves an OpenAI API key in **AI settings** over HTTPS (or localhost), or configures `OPENAI_API_KEY` privately. Then choose the target profile, select **Import PDF**, and explicitly consent to sending the **entire report** to OpenAI. The app uses `gpt-4.1-mini` through the Responses API with response storage disabled. This optional step can incur provider charges.
+
+The proposed rows include marker, value, unit, collection date, laboratory, reference range, method, and page. Check the report patient and every selected row against the original PDF; fill missing dates and correct errors. **Preview import** checks for duplicate or conflicting marker/date entries without writing. **Import reviewed results** makes a private SQLite backup and adds new rows atomically. Conflicts stop the whole batch. The source PDF is held in memory for the request and is not saved by the app; extraction drafts expire from server memory. The saved observation includes a document hash and source page for provenance.
+
+The browser demo has no key, so it exercises the disclosure and missing-key path. Automated extraction tests use a synthetic PDF and a provider stub; a separate live OpenAI smoke check used only a synthetic report. Neither establishes accuracy on real-world reports. For private documents, check your provider terms before sending them.
+
 ### Use the included import skill
 
 [skills/bloodwork-profile-import/SKILL.md](skills/bloodwork-profile-import/SKILL.md) is a portable workflow for an agent that can inspect local reports. It confirms patient identity, inventories duplicate sources, reviews extracted values and metadata, prepares a manifest, and previews an import. It has no hardcoded user, directory, workbook, or provider. Its small adapter calls this app's maintained importer.
@@ -70,12 +80,12 @@ In an agent environment that supports skills, explicitly point it to this reposi
 
 Alternatively, install **a copy** of this folder in your agent's user/project skill directory according to that agent's instructions. Do not overwrite an existing customized skill. No agent tooling is needed to run the app or importer.
 
-The workflow can be adapted to other trackers by replacing the destination contract/adapter. The included script supports this repository's schema only. PDF/OCR tooling is supplied by your agent environment, and human review is required. The app itself does not parse PDFs or send documents to AI.
+The workflow can be adapted to other trackers by replacing the destination contract/adapter. The included script supports this repository's schema only. The skill remains useful for multi-file reconciliation and offline preparation; the in-app PDF flow handles a single consented report.
 
 ## Architecture and decisions
 
 ```text
-Manual entry / reviewed manifest or workbook
+Manual entry / reviewed PDF, manifest, or workbook
         ↓ validation + profile authorization (API) / local operator (CLI)
 Express API ── SQLite: users → profiles → markers → records
         │                         └→ events and saved chats
@@ -86,20 +96,20 @@ React state → selected markers + calendar range → SVG chart + exact-value ta
 
 - **One local database, explicit ownership.** SQLite constraints and transactions enforce one result per marker/date and matching record/marker profiles. API ownership checks protect the account boundary. Additive migrations run on startup; existing observations are never automatically imported or replaced. A single Node process keeps deployment small; sessions and AI jobs are in memory, so restarts require sign-in and discard unfinished jobs.
 - **Preserve observations before comparing them.** Marker identity is profile + category + case-insensitive name. Units, ranges, lab, and method belong to each result. The original numeric spelling is retained; a bounded floating-point value is used for plotting. Lines break at missing/qualitative results and changes in comparison metadata. Unknown unit/lab/method produces points only. Mixed units use explicitly labeled independent visual scales; the exact-value table remains authoritative.
-- **Share invariants, not duplicate import logic.** UI/API and imports share date/value validation. The CLI previews, backs up, and commits one transaction; repeated imports are idempotent and conflicting data requires review. The bundled skill delegates to that importer. AI context is separately constructed on the server from authorized records and the exact selected timeframe.
+- **Share invariants, not duplicate import logic.** UI/API and imports share date/value validation. PDF extraction yields an editable draft; the PDF flow, CLI, and bundled skill all delegate preview and atomic apply to the same importer. Repeated imports are idempotent and conflicting data requires review. AI chat context is separately constructed on the server from authorized records and the exact selected timeframe.
 
 Ownership is intentionally small: categories and profile-name uniqueness remain global, the administrator is trusted, and local filesystem access grants access to the database. This is not tenant-grade isolation. For more detail, read [the case study](docs/case-study.md).
 
 ## Optional AI: bring your own key
 
-Tracking, imports, charts, and the demo work without AI. There is no self-hosted AI endpoint or bundled provider credential.
+Tracking, manual/manifest/workbook imports, charts, and the demo work without AI. PDF extraction is optional and requires OpenAI BYOK. There is no self-hosted AI endpoint or bundled provider credential.
 
 - **OpenAI:** an administrator can add a key in AI settings over HTTPS or localhost, or set `OPENAI_API_KEY`. File-managed keys are stored server-side with mode `0600`; the API returns only configuration status. Requests use the Responses API with `store: false`.
 - **OpenRouter:** set `OPENROUTER_KEY` in the private `.env`. Requests may go to a downstream model provider. Model availability and provider terms can change; no free-service availability is promised.
 
 Keys are operator-managed and shared across authorized app users. Requests may incur charges. No live paid-provider call is part of the demo or tests.
 
-Sending a chat requires consent. The provider receives selected marker labels, dated observations, original units, report ranges, methods, labs, result notes, overlapping event titles/notes/substances, the prompt, and chat messages. The profile's display name and source documents are not included in structured context, but free text may identify someone. Stored chat history can contain earlier context. `store: false` does not promise zero provider retention. AI may produce wrong or unsafe interpretations; guardrail text is not clinical validation.
+Sending a chat requires consent. The provider receives selected marker labels, dated observations, original units, report ranges, methods, labs, result notes, overlapping event titles/notes/substances, the prompt, and chat messages. The profile's display name and source documents are not included in chat's structured context, but free text may identify someone. **PDF extraction is different: it sends the full source document, including identifiers, only after a separate explicit consent.** `store: false` does not promise zero provider retention. AI may produce wrong or unsafe interpretations; guardrail text is not clinical validation.
 
 ## Verification and other run modes
 

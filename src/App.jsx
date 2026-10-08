@@ -6,6 +6,7 @@ import { Icon } from './components/Icons.jsx'
 import AIChatPanel from './components/AIChatPanel.jsx'
 import LifeEventModal from './components/LifeEventModal.jsx'
 import ProfileModal from './components/ProfileModal.jsx'
+import PdfImportModal from './components/PdfImportModal.jsx'
 import RecordModal from './components/RecordModal.jsx'
 import TrendChart from './components/TrendChart.jsx'
 import UserManagementModal from './components/UserManagementModal.jsx'
@@ -62,6 +63,7 @@ export default function App({ username, role, onLogout }) {
   const [modal, setModal] = useState({ open: false, editing: null, initial: null })
   const [lifeEventModal, setLifeEventModal] = useState({ open: false, editing: null, initialDate: '' })
   const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [pdfImportOpen, setPdfImportOpen] = useState(false)
   const [userManagementOpen, setUserManagementOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [chartDateRange, setChartDateRange] = useState(null)
@@ -75,6 +77,7 @@ export default function App({ username, role, onLogout }) {
     const requestId = ++profileRequest.current
     if (!initial) setSwitchingProfile(true)
     setAiOpen(false)
+    setPdfImportOpen(false)
     setModal({ open: false, editing: null, initial: null })
     setLifeEventModal({ open: false, editing: null, initialDate: '' })
     try {
@@ -235,6 +238,7 @@ export default function App({ username, role, onLogout }) {
               <button onClick={() => setProfileModalOpen(true)} className="grid size-10 shrink-0 place-items-center border-l border-stone-200 text-stone-500 transition hover:bg-teal-50 hover:text-teal-800" aria-label="Add profile"><Icon name="plus" className="size-4" /></button>
             </div>
             <button onClick={() => setAiOpen(true)} aria-label="Ask AI" disabled={!activeProfile || switchingProfile} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 sm:px-3.5"><Icon name="sparkles" className="size-4" /><span className="hidden xl:inline">Ask AI</span></button>
+            <button type="button" disabled={!activeProfile || switchingProfile} onClick={() => setPdfImportOpen(true)} className="inline-flex shrink-0 items-center rounded-xl border border-teal-200 bg-white px-3 py-2.5 text-sm font-semibold text-teal-800 transition hover:bg-teal-50 disabled:opacity-50">Import PDF</button>
             <button disabled={!activeProfile || switchingProfile} aria-label="Add result" onClick={() => setModal({ open: true, editing: null, initial: null })} className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-teal-800 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-900 sm:px-4"><Icon name="plus" className="size-4" /><span className="hidden sm:inline">Add result</span></button>
             {role === 'admin' && <button onClick={() => setUserManagementOpen(true)} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold text-stone-600 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" aria-label="Manage users" title="Manage users"><Icon name="users" className="size-4" /><span className="hidden 2xl:inline">Users</span></button>}
             <button onClick={onLogout} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold text-stone-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700" aria-label="Log out" title={`Signed in as ${username}`}><Icon name="logout" className="size-4" /><span className="hidden 2xl:inline">Log out</span></button>
@@ -330,6 +334,7 @@ export default function App({ username, role, onLogout }) {
       <RecordModal open={modal.open} editing={modal.editing} initial={modal.initial} profileId={data.activeProfileId} categories={data.categories} markers={data.markers} onClose={() => setModal({ open: false, editing: null, initial: null })} onSave={saveRecord} onDelete={async (record) => { const deleted = await deleteRecord(record); if (deleted) setModal({ open: false, editing: null, initial: null }) }} />
       <LifeEventModal open={lifeEventModal.open} editing={lifeEventModal.editing} initialDate={lifeEventModal.initialDate} profileId={data.activeProfileId} onClose={() => setLifeEventModal({ open: false, editing: null, initialDate: '' })} onSave={saveLifeEvent} onDelete={deleteLifeEvent} />
       <ProfileModal open={profileModalOpen} onClose={() => setProfileModalOpen(false)} onCreate={createProfile} />
+      {activeProfile && <PdfImportModal key={activeProfile.id} open={pdfImportOpen} profile={activeProfile} onClose={() => setPdfImportOpen(false)} onImported={async (result) => { await loadProfile(activeProfile.id); setToast(`${result.added} results imported; ${result.identical} already present`) }} />}
       {role === 'admin' && <UserManagementModal open={userManagementOpen} onClose={() => setUserManagementOpen(false)} onNotice={setToast} />}
       <AIChatPanel key={data.activeProfileId} open={aiOpen} onClose={() => setAiOpen(false)} profile={activeProfile} markers={data.markers} records={data.records} lifeEvents={data.lifeEvents} initialMarkerIds={selectedIds} dateRange={chartDateRange} isAdmin={role === 'admin'} />
       {toast && <div role="status" className="fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">{toast}</div>}

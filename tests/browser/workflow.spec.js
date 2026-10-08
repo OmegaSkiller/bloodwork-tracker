@@ -41,10 +41,12 @@ test('keyboard result entry, precision, reload persistence, dialog focus and dup
   await expect(dialog).toBeVisible()
   await dialog.getByLabel('Marker', { exact: true }).selectOption({ label: 'TSH · mIU/L' })
   await dialog.getByLabel('Result', { exact: true }).fill('1.23400')
+  await expect(dialog.getByRole('button', { name: 'Result date', exact: true })).not.toContainText('Choose result date')
   await dialog.getByRole('button', { name: 'Result date', exact: true }).click()
   await expect(page.getByRole('combobox', { name: 'Choose year' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Result date', exact: true })).not.toContainText('Choose result date')
   await dialog.getByRole('button', { name: 'Add result', exact: true }).click()
   await expect(dialog).not.toBeVisible()
   await page.reload()
@@ -87,6 +89,25 @@ test('empty profiles, AI disclosure without credentials, and mobile layout', asy
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('PDF import discloses provider transfer and handles a missing key on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Import PDF' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Import results from PDF' })
+  await expect(dialog).toContainText('OpenAI reads the full PDF')
+  await expect(dialog.getByRole('button', { name: 'Extract for review' })).toBeDisabled()
+  await dialog.getByLabel('Laboratory PDF (up to 10 MB)').setInputFiles({
+    name: 'synthetic.pdf', mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n'),
+  })
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('button', { name: 'Extract for review' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('configure an OpenAI API key')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await dialog.getByRole('button', { name: 'Close PDF import' }).click()
+  await expect(dialog).not.toBeVisible()
 })
 
 test('capture reproducible synthetic portfolio screenshots', async ({ page }) => {

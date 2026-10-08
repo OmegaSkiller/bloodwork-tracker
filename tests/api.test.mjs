@@ -34,10 +34,43 @@ const base = await new Promise((resolve, reject) => {
 })
 after(async () => { server.kill(); await once(server, 'exit'); db.close(); fs.rmSync(folder, { recursive: true, force: true }) })
 const cookies = {}
+function syntheticPdf(label = 'SYNTHETIC_REPORT') {
+  const stream = `BT /F1 12 Tf 20 260 Td (${label}) Tj ET`
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+  for (const [index, object] of objects.entries()) {
+    offsets.push(Buffer.byteLength(pdf))
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  }
+  const xrefOffset = Buffer.byteLength(pdf)
+  pdf += `xref\n0 ${offsets.length}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
+  return Buffer.from(pdf)
+}
 async function request(route, { user = 'alice', method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', ...(cookies[user] ? { Cookie: cookies[user] } : {}), ...headers }, body: body === undefined ? undefined : JSON.stringify(body) })
   const text = await response.text()
   return { status: response.status, headers: response.headers, body: text ? JSON.parse(text) : null }
+}
+async function pdfUpload({ user = 'alice', consent = true, profile = profileId, pdf = syntheticPdf() } = {}) {
+  const response = await fetch(`${base}/api/pdf-import?profileId=${profile}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/pdf', ...(consent ? { 'X-Pdf-Transfer-Consent': 'true' } : {}), ...(cookies[user] ? { Cookie: cookies[user] } : {}) }, body: pdf,
+  })
+  return { status: response.status, body: await response.json() }
+}
+async function pdfResult(jobId, user = 'alice') {
+  for (let i = 0; i < 100; i += 1) {
+    const result = await request(`/api/pdf-import/${jobId}`, { user })
+    if (result.status !== 202) return result
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error('Synthetic PDF job did not finish.')
 }
 for (const username of ['admin', 'alice', 'bob']) {
   const login = await request('/api/auth/login', { user: username, method: 'POST', body: { username, password: `synthetic-${username}-password` } })
@@ -168,6 +201,63 @@ test('a rejected provider key does not log the user out of the tracking app', as
   for (let i = 0; i < 50; i++) { result = await request(`/api/ai/chat/${job.body.jobId}`); if (result.status !== 202) break; await new Promise((r) => setTimeout(r, 10)) }
   assert.equal(result.status, 502)
   assert.equal((await request('/api/bootstrap')).status, 200)
+})
+
+test('PDF extraction requires consent and profile ownership; provider failures preserve results', async () => {
+  const before = db.prepare('SELECT count(*) AS n FROM records').get().n
+  assert.equal((await pdfUpload({ user: 'bob' })).status, 404)
+  assert.equal((await pdfUpload({ user: 'anonymous' })).status, 401)
+  assert.equal((await pdfUpload({ consent: false })).status, 400)
+  assert.equal((await pdfUpload({ pdf: Buffer.from('not a PDF') })).status, 400)
+  const oversized = Buffer.alloc(10 * 1024 * 1024 + 1)
+  oversized.write('%PDF-1.4')
+  assert.equal((await pdfUpload({ pdf: oversized })).status, 413)
+  for (const label of ['SIMULATE_FAILURE', 'SIMULATE_INCOMPLETE', 'SIMULATE_INVALID']) {
+    const started = await pdfUpload({ pdf: syntheticPdf(label) })
+    assert.equal(started.status, 202)
+    assert.equal((await pdfResult(started.body.jobId)).status, 502)
+  }
+  assert.equal(db.prepare('SELECT count(*) AS n FROM records').get().n, before)
+})
+
+test('reviewed PDF requires exact preview, corrects missing data, backs up, and imports atomically', async () => {
+  const started = await pdfUpload()
+  assert.equal(started.status, 202)
+  assert.equal((await request(`/api/pdf-import/${started.body.jobId}`, { user: 'bob' })).status, 404)
+  const ready = await pdfResult(started.body.jobId)
+  assert.equal(ready.status, 200)
+  assert.equal(ready.body.patientName, 'Synthetic Alice')
+  assert.equal(ready.body.rows.length, 2)
+  const captured = JSON.parse(fs.readFileSync(capture, 'utf8')).request
+  assert.equal(captured.store, false)
+  assert.equal(captured.model, 'gpt-4.1-mini')
+  assert.equal(captured.input[1].content[0].type, 'input_file')
+  const route = `/api/pdf-import/${started.body.jobId}/review`
+  const review = (mode, rows, extra = {}) => request(route, { method: 'POST', body: { mode, rows, profileName: 'Synthetic Alice', confirmedProfile: true, ...extra } })
+  const rows = ready.body.rows
+  assert.equal((await review('apply', rows)).status, 400)
+  assert.equal((await review('preview', rows)).status, 400)
+  assert.equal((await review('preview', rows, { confirmedProfile: false })).status, 400)
+  assert.equal((await review('preview', rows.map((row) => ({ ...row, date: '2024-02-29' })))).status, 400)
+  const corrected = rows.map((row, index) => index === 1 ? { ...row, date: '2025-04-01' } : row)
+  const preview = await review('preview', corrected)
+  assert.equal(preview.status, 200)
+  assert.equal(preview.body.added, 2)
+  assert.equal((await review('apply', corrected.map((row, index) => index ? { ...row, value: '9' } : row))).status, 400)
+  const backupsBefore = fs.existsSync(path.join(folder, 'backups')) ? fs.readdirSync(path.join(folder, 'backups')).length : 0
+  const applied = await review('apply', corrected)
+  assert.equal(applied.status, 200)
+  assert.equal(applied.body.added, 2)
+  assert.equal(fs.readdirSync(path.join(folder, 'backups')).length, backupsBefore + 1)
+  assert.equal(db.prepare("SELECT raw_value FROM records WHERE profile_id=? AND measured_on='2025-03-01'").get(profileId).raw_value, '2.3450')
+  assert.equal(db.prepare("SELECT raw_value FROM records WHERE profile_id=? AND measured_on='2025-04-01'").get(profileId).raw_value, '4.10')
+  assert.equal((await review('apply', corrected)).status, 409)
+  const duplicate = await pdfUpload()
+  const duplicateReady = await pdfResult(duplicate.body.jobId)
+  const duplicateRows = duplicateReady.body.rows.map((row, index) => index === 1 ? { ...row, date: '2025-04-01' } : row)
+  const identical = await request(`/api/pdf-import/${duplicate.body.jobId}/review`, { method: 'POST', body: { mode: 'preview', rows: duplicateRows, profileName: 'Synthetic Alice', confirmedProfile: true } })
+  assert.equal(identical.status, 200)
+  assert.equal(identical.body.identical, 2)
 })
 
 test('provider failures preserve records; account password resets revoke sessions', async () => {
